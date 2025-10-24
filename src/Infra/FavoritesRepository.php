@@ -28,6 +28,12 @@ class FavoritesRepository
 
     public function addFavorite(array $comic): bool
     {
+        // Validate required keys
+        foreach (['num', 'title', 'img', 'alt', 'date'] as $key) {
+            if (!array_key_exists($key, $comic)) {
+                throw new \InvalidArgumentException("Missing required comic key: $key");
+            }
+        }
         $stmt = $this->pdo->prepare("INSERT OR IGNORE INTO favorites (comic_num, title, img, alt, date) VALUES (?, ?, ?, ?, ?)");
         return $stmt->execute([
             $comic['num'],
@@ -44,4 +50,3 @@ class FavoritesRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
-
