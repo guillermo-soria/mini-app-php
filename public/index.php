@@ -123,7 +123,7 @@ function esc($str) {
             $currNum = $comic['num'];
             $prev = max(1, $currNum - 1);
             $next = min($maxNum, $currNum + 1);
-            $random = rand(1, $maxNum);
+            $random = random_int(1, $maxNum);
             ?>
             <a href="?id=<?= $prev ?>">Previous</a>
             <a href="?id=<?= $next ?>">Next</a>
