@@ -30,27 +30,47 @@ if ($uri === '/api/favorites') {
     header('Content-Type: application/json; charset=utf-8');
     try {
         $favorites = $favModel->getFavorites();
+        // Map DB fields to API fields: num, title, img, alt, date
+        $out = array_map(function($r) {
+            return [
+                'num' => isset($r['comic_id']) ? (int)$r['comic_id'] : null,
+                'title' => $r['title'] ?? null,
+                'img' => $r['img'] ?? null,
+                'alt' => $r['alt'] ?? null,
+                'date' => $r['original_date'] ?? $r['created_at'] ?? null,
+            ];
+        }, $favorites);
         http_response_code(200);
-        echo json_encode($favorites);
+        echo json_encode($out);
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to fetch favorites']);
-        $logger->error('Favorites endpoint error: ' . $e->getMessage());
+        $traceId = bin2hex(random_bytes(8));
+        echo json_encode([
+            'error' => 'Failed to fetch favorites',
+            'trace_id' => $traceId
+        ]);
+        $logger->error('Favorites endpoint error: ' . $e->getMessage() . ' [trace_id: ' . $traceId . ']');
     }
     exit;
 }
 
 $num = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 $error = null;
-if ($num === false && isset($_GET['id'])) {
-    $error = 'Invalid comic number. Please enter a valid number.';
-    $num = null;
-}
 $comic = null;
 $latestComic = null;
 
 try {
     $latestComic = $controller->show();
+    $maxNum = $latestComic['num'] ?? 1;
+    // Clamp $num to [1, $maxNum] if set
+    if ($num !== null) {
+        if ($num < 1) $num = 1;
+        if ($num > $maxNum) $num = $maxNum;
+    }
+    if ($num === false && isset($_GET['id'])) {
+        $error = 'Invalid comic number. Please enter a valid number.';
+        $num = null;
+    }
     if (!$error) {
         $comic = $controller->show($num);
     }
@@ -129,8 +149,8 @@ function esc($str) {
         <div>Date: <?= esc($comic['year']) ?>-<?= esc($comic['month']) ?>-<?= esc($comic['day']) ?></div>
         <div class="nav-btns">
             <?php
-            $maxNum = $latestComic['num'] ?? $comic['num'];
-            $currNum = $comic['num'];
+            $maxNum = $latestComic['num'] ?? ($comic['num'] ?? 1);
+            $currNum = $comic['num'] ?? 1;
             $prev = max(1, $currNum - 1);
             $next = min($maxNum, $currNum + 1);
             $random = random_int(1, $maxNum);
