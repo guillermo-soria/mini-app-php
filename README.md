@@ -3,102 +3,126 @@
 Mini-aplicación en PHP 8.1+ que consume la API pública de XKCD y expone una interfaz web sencilla junto a endpoints internos.
 
 ## Requisitos funcionales
-- RF1: Mostrar el cómic actual de XKCD (título, imagen, alt-text, número, fecha).
-- RF2: Permitir navegar a un cómic por número (?id=NUM).
-- RF3: Botones “Previous”, “Next” y “Random” con validaciones (no ir <1 ni >actual).
-- RF4: Endpoint interno GET `/api/favorites` que devuelve favoritos en JSON.
-- RF5: Manejo de errores visible (cómic inexistente, red caída, input inválido).
+- Mostrar el cómic actual de XKCD (título, imagen, alt-text, número, fecha).
+- Permitir navegar a un cómic por número (`?id=NUM`).
+- Botones “Previous”, “Next” y “Random” con validaciones (no ir <1 ni >actual).
+- Endpoint interno `GET /api/favorites` que devuelve favoritos en JSON.
+- Manejo de errores visible (cómic inexistente, red caída, input inválido).
 
 ## Requisitos no funcionales
-- RNF1: PHP 8.1+ sin frameworks pesados.
-- RNF2: Acceso a datos con PDO y consultas preparadas (SQLite).
-- RNF3: Código fuente en inglés; README claro en español.
-- RNF4: Despliegue online en servicio gratuito o guía paso a paso.
-- RNF5: Estructura de carpetas clara y separada por capas.
+- PHP 8.1+ sin frameworks pesados.
+- Acceso a datos con PDO y SQLite.
+- Código fuente en inglés; README en español.
+- Despliegue en Fly.io (ejemplo) u otra plataforma.
+- Estructura de carpetas clara y separada por capas.
 
-## Instalación y ejecución local
+## Estado desplegado
+Live demo: https://xkcd-mini.fly.dev/
+
+## Ejecución local
 1. Clona el repositorio:
    ```bash
    git clone <URL-del-repo>
    cd mini-app-php
    ```
-2. Ejecuta el servidor embebido de PHP:
+2. Ejecuta el servidor embebido de PHP (para desarrollo):
    ```bash
-   php -S localhost:8000 -t public
+   php -S 127.0.0.1:8000 -t public
    ```
-3. Accede a [http://localhost:8000](http://localhost:8000) en tu navegador.
+3. Abre http://127.0.0.1:8000 en tu navegador.
+
+> Nota: el proyecto ahora está organizado con un pequeño front controller (public/index.php), un bootstrap en `src/bootstrap.php` y vistas bajo `src/Views/`.
 
 ## Uso
 - Visualiza el cómic actual de XKCD.
 - Navega por número usando `?id=NUM`.
 - Botones Previous, Next y Random (con límites).
-- Agrega cómics a favoritos.
+- Agrega cómics a favoritos (persistencia SQLite).
 - Endpoint interno: `GET /api/favorites` devuelve favoritos en JSON.
-- Manejo de errores visible (cómic inexistente, red caída, input inválido).
+- HTMX se usa para navegación parcial: las peticiones con `HX-Request` devuelven solo el fragmento HTML (`<section id="comic">`) para que la UI actualice sin recargar la página.
 
-## Estructura de carpetas
+## Estructura de carpetas (resumen)
 ```
 public/           # Punto de entrada y archivos estáticos
-src/
-  Presentation/   # Controladores (lógica de presentación y endpoints)
-  Infra/          # Acceso a datos, logging, cliente API XKCD
+src/              # Código PHP (bootstrap, controllers, infra, views)
 logs/             # Trazas de la aplicación (app.log)
-data/             # Base de datos SQLite (favorites.sqlite)
+data/             # Base de datos SQLite (favorites.sqlite) — en producción monta un volumen
 ```
 
-## Despliegue gratuito (Fly.io)
+## Docker / contenedores
+A continuación dos ejemplos de Dockerfile (elige uno según prefieras correr con Apache o con el servidor embebido para desarrollo).
 
-Esta aplicación se puede desplegar en Fly.io como backend PHP con persistencia para SQLite. A continuación pasos prácticos para un despliegue rápido usando Fly CLI y un Dockerfile simple.
+Opción A — imagen con Apache (recomendada para producción simple):
+```Dockerfile
+FROM php:8.1-apache
+RUN docker-php-ext-install pdo pdo_sqlite
+COPY . /var/www/html/
+WORKDIR /var/www/html
+# Asegura que la carpeta de datos exista y permisos para SQLite
+RUN mkdir -p /data && chown -R www-data:www-data /data
+# Si el DocumentRoot debe ser /var/www/html/public, ajusta la configuración de Apache o copia solo /public
+EXPOSE 80
+CMD ["apache2-foreground"]
+```
 
-1. Instala flyctl: https://fly.io/docs/hands-on/install-flyctl/
-2. Inicia sesión y crea una app:
+Opción B — imagen ligera usando el servidor embebido (útil para pruebas):
+```Dockerfile
+FROM php:8.1-cli
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsqlite3-dev \
+    && docker-php-ext-install pdo pdo_sqlite \
+    && rm -rf /var/lib/apt/lists/*
+COPY . /app
+WORKDIR /app
+RUN mkdir -p /data && chown -R www-data:www-data /data
+EXPOSE 8080
+CMD ["php", "-S", "0.0.0.0:8080", "-t", "public"]
+```
+
+## Despliegue en Fly.io (resumen)
+1. Instala flyctl y autenticate:
    ```bash
    fly auth login
    fly launch --name xkcd-mini --region ord --no-deploy
    ```
-3. Crea un volumen persistente para la base de datos (ejemplo 1 GB):
+2. Crea un volumen persistente para la base de datos:
    ```bash
    fly volumes create data --size 1 --region ord -a xkcd-mini
    ```
-4. Añade un Dockerfile en la raíz del repo (ejemplo):
-   ```Dockerfile
-   FROM php:8.1-apache
-   RUN docker-php-ext-install pdo pdo_sqlite
-   COPY . /var/www/html/
-   WORKDIR /var/www/html
-   # permisos para SQLite data dir
-   RUN mkdir -p /data && chown -R www-data:www-data /data
-   EXPOSE 8080
-   CMD ["php", "-S", "0.0.0.0:8080", "-t", "public"]
-   ```
-   (Si prefieres usar Apache, ajusta el Dockerfile para poner el contenido en /var/www/html y usar apache2-foreground.)
-5. Configura el mapeo de volumen en fly.toml (Fly creará fly.toml en fly launch). Añade bajo [[mounts]]:
+3. En `fly.toml` añade (si no existe) el mapeo de volumen:
    ```toml
    [[mounts]]
    source = "data"
    destination = "/data"
    ```
-6. Asegúrate de que la app use la carpeta `/data` para la base SQLite (README y código ya usan `data/favorites.sqlite`). En el servidor Fly la ruta será `/data/favorites.sqlite`.
-7. Despliega la app:
+4. Asegura que la aplicación use `/data/favorites.sqlite` en producción. Puedes configurar la variable de entorno `FAVORITES_DB` en fly.toml o con `fly secrets`:
+   ```toml
+   [env]
+   FAVORITES_DB = "/data/favorites.sqlite"
+   ```
+   O desde CLI:
+   ```bash
+   fly secrets set FAVORITES_DB=/data/favorites.sqlite
+   ```
+5. Despliega:
    ```bash
    fly deploy -a xkcd-mini
    ```
-8. Revisa logs y estado:
+6. Revisa logs y estado:
    ```bash
    fly logs -a xkcd-mini
    fly status -a xkcd-mini
    ```
 
-Notas importantes
-- Fly.io ejecuta tu contenedor; la app debe crear o usar `data/favorites.sqlite` dentro del volumen `/data` para persistencia.
-- Si usas el comando `php -S` en el Dockerfile, asegúrate de exponer el puerto correcto (Fly usa el puerto 8080 por convención en contenedores).
-- No subas `data/*.sqlite` ni `logs/*.log` al repositorio (ya están en .gitignore).
+### Nota sobre CI / GitHub Actions
+Si usas `flyctl deploy --remote-only` en GitHub Actions, necesitas un token válido en los secretos del repositorio:
+- Crea un token en https://fly.io (Account → Personal Access Tokens).
+- Añádelo a GitHub Secrets con el nombre `FLY_API_TOKEN`.
 
-## Notas
-- El código está en inglés y el README en español.
-- No se usan frameworks pesados.
-- Acceso a datos con PDO y consultas preparadas.
-- Logs básicos en `logs/app.log`.
+## Consideraciones y recomendaciones
+- El código por defecto usa `data/favorites.sqlite` en desarrollo si `FAVORITES_DB` no está definido. En producción (Fly) se recomienda apuntar a `/data/favorites.sqlite` mediante la variable de entorno.
+- HTMX está integrado: las peticiones XHR con el header `HX-Request` devuelven solo el fragmento para un swap parcial. No se requieren cambios adicionales en el cliente.
+- Si colaboras, usa `php -S` para pruebas locales y pruebas la configuración de Docker/Fly para producción.
 
 ## Autor
 Guillermo Soria Correa
