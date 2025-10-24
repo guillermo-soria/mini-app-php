@@ -26,7 +26,7 @@ class Logger
         $entry = "[$date][$level] $message\n";
         $result = file_put_contents($this->logFile, $entry, FILE_APPEND);
         if ($result === false) {
-            throw new \RuntimeException("Failed to write to log file: {$this->logFile}");
+            error_log("Logger error: Failed to write to log file: {$this->logFile}");
         }
     }
 }
