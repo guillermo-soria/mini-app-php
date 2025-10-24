@@ -32,8 +32,14 @@ class XkcdApiClient
         curl_setopt($ch, CURLOPT_TIMEOUT, 5);
         $json = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        if (curl_errno($ch) || $httpCode !== 200) {
-            $errorMsg = "Could not fetch XKCD comic. Network error or invalid response. Comic: " . ($num ?? 'latest') . " URL: $url HTTP: $httpCode";
+        if (curl_errno($ch)) {
+            $errorMsg = "cURL error while fetching XKCD comic: " . ($num ?? 'latest') . " URL: $url. cURL error: " . curl_error($ch);
+            $this->logger->error($errorMsg);
+            curl_close($ch);
+            throw new Exception($errorMsg);
+        }
+        if ($httpCode !== 200) {
+            $errorMsg = "HTTP error while fetching XKCD comic: " . ($num ?? 'latest') . " URL: $url HTTP: $httpCode";
             $this->logger->error($errorMsg);
             curl_close($ch);
             throw new Exception($errorMsg);
