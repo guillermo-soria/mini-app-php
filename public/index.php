@@ -65,16 +65,25 @@ if ($error) {
 
 $addedFavorite = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['favorite']) && $comic) {
-    $date = $comic['year'] . '-' . str_pad($comic['month'], 2, '0', STR_PAD_LEFT) . '-' . str_pad($comic['day'], 2, '0', STR_PAD_LEFT);
-    $favData = [
-        'num' => $comic['num'],
-        'title' => $comic['title'],
-        'img' => $comic['img'],
-        'alt' => $comic['alt'],
-        'date' => $date
-    ];
-    if ($favModel->addFavorite($favData)) {
-        $addedFavorite = true;
+    // Validate year, month, and day
+    $year = isset($comic['year']) ? filter_var($comic['year'], FILTER_VALIDATE_INT) : false;
+    $month = isset($comic['month']) ? filter_var($comic['month'], FILTER_VALIDATE_INT) : false;
+    $day = isset($comic['day']) ? filter_var($comic['day'], FILTER_VALIDATE_INT) : false;
+    if ($year !== false && $month !== false && $day !== false &&
+        $year > 0 && $month >= 1 && $month <= 12 && $day >= 1 && $day <= 31) {
+        $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
+        $favData = [
+            'num' => $comic['num'],
+            'title' => $comic['title'],
+            'img' => $comic['img'],
+            'alt' => $comic['alt'],
+            'date' => $date
+        ];
+        if ($favModel->addFavorite($favData)) {
+            $addedFavorite = true;
+        }
+    } else {
+        $logger->error('Invalid date fields for favorite: ' . json_encode([$comic['year'], $comic['month'], $comic['day']]));
     }
 }
 
