@@ -72,8 +72,7 @@ if ($requested !== null && $requested !== false) {
 /** 3) Traer el cómic solicitado (o actual si null) */
 $comic = fetchXkcd($requested, $xkcdBase, $timeout);
 if (!$comic) {
-    // Ej: número inexistente o caída de red
-    htmlError('The comic you requested does not exist or the network failed.');
+    htmlError('Comic not found or network/API error.');
 }
 
 /** 4) Datos y fecha robusta */
@@ -135,7 +134,9 @@ $disNext = $num >= $latestNum ? 'disabled' : '';
         <a href="/?id=<?= $rand ?>"><button>Random</button></a>
 
         <form class="inline" method="get" action="/">
-            <input type="number" name="id" min="1" max="<?= $latestNum ?>" placeholder="Go to #">
+            <label>
+                <input type="number" name="id" min="1" max="<?= $latestNum ?>" placeholder="Go to #" >
+            </label>
             <button type="submit">Go</button>
         </form>
 
