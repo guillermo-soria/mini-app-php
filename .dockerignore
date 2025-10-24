@@ -1,0 +1,19 @@
+# ...existing code...
+# Docker ignore for building image
+# Ignore local development files, database and logs
+/data
+/logs
+*.sqlite
+*.log
+# Git and IDE
+.git
+.idea
+# Environment files and secrets
+.env
+.env.*
+# Dependency directories
+vendor/
+node_modules/
+# Misc
+.DS_Store
+

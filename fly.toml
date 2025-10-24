@@ -1,0 +1,28 @@
+app = "xkcd-mini"
+kill_signal = "SIGINT"
+kill_timeout = 5
+processes = []
+
+[env]
+# FAVORITES_DB is set in Dockerfile to /data/favorites.sqlite by default
+
+[experimental]
+  allowed_public_ports = []
+
+[[services]]
+  internal_port = 80
+  protocol = "tcp"
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[mounts]]
+    source = "data"
+    destination = "/data"
+

@@ -12,8 +12,14 @@ require_once __DIR__ . '/../src/Infra/FavoritesRepository.php';
 require_once __DIR__ . '/../src/Infra/Logger.php';
 
 // Config
-$dbPath = __DIR__ . '/../data/favorites.sqlite';
+$dbPath = getenv('FAVORITES_DB') ?: (__DIR__ . '/../data/favorites.sqlite');
 $logPath = __DIR__ . '/../logs/app.log';
+
+// Ensure the directory for the database exists
+$dbDir = dirname($dbPath);
+if (!is_dir($dbDir)) {
+    mkdir($dbDir, 0775, true);
+}
 
 // Setup
 $pdo = new PDO('sqlite:' . $dbPath);

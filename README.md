@@ -46,12 +46,53 @@ logs/             # Trazas de la aplicación (app.log)
 data/             # Base de datos SQLite (favorites.sqlite)
 ```
 
-## Despliegue gratuito (ejemplo Fly.io)
-1. Regístrate en [Fly.io](https://fly.io/) y crea una nueva app.
-2. Sube el código del proyecto.
-3. Configura PHP 8.1+ y persistencia para la carpeta `data/`.
-4. Expón el directorio `public/` como raíz web.
-5. Accede a la URL pública que te proporciona Fly.io.
+## Despliegue gratuito (Fly.io)
+
+Esta aplicación se puede desplegar en Fly.io como backend PHP con persistencia para SQLite. A continuación pasos prácticos para un despliegue rápido usando Fly CLI y un Dockerfile simple.
+
+1. Instala flyctl: https://fly.io/docs/hands-on/install-flyctl/
+2. Inicia sesión y crea una app:
+   ```bash
+   fly auth login
+   fly launch --name xkcd-mini --region ord --no-deploy
+   ```
+3. Crea un volumen persistente para la base de datos (ejemplo 1 GB):
+   ```bash
+   fly volumes create data --size 1 --region ord -a xkcd-mini
+   ```
+4. Añade un Dockerfile en la raíz del repo (ejemplo):
+   ```Dockerfile
+   FROM php:8.1-apache
+   RUN docker-php-ext-install pdo pdo_sqlite
+   COPY . /var/www/html/
+   WORKDIR /var/www/html
+   # permisos para SQLite data dir
+   RUN mkdir -p /data && chown -R www-data:www-data /data
+   EXPOSE 8080
+   CMD ["php", "-S", "0.0.0.0:8080", "-t", "public"]
+   ```
+   (Si prefieres usar Apache, ajusta el Dockerfile para poner el contenido en /var/www/html y usar apache2-foreground.)
+5. Configura el mapeo de volumen en fly.toml (Fly creará fly.toml en fly launch). Añade bajo [[mounts]]:
+   ```toml
+   [[mounts]]
+   source = "data"
+   destination = "/data"
+   ```
+6. Asegúrate de que la app use la carpeta `/data` para la base SQLite (README y código ya usan `data/favorites.sqlite`). En el servidor Fly la ruta será `/data/favorites.sqlite`.
+7. Despliega la app:
+   ```bash
+   fly deploy -a xkcd-mini
+   ```
+8. Revisa logs y estado:
+   ```bash
+   fly logs -a xkcd-mini
+   fly status -a xkcd-mini
+   ```
+
+Notas importantes
+- Fly.io ejecuta tu contenedor; la app debe crear o usar `data/favorites.sqlite` dentro del volumen `/data` para persistencia.
+- Si usas el comando `php -S` en el Dockerfile, asegúrate de exponer el puerto correcto (Fly usa el puerto 8080 por convención en contenedores).
+- No subas `data/*.sqlite` ni `logs/*.log` al repositorio (ya están en .gitignore).
 
 ## Notas
 - El código está en inglés y el README en español.
