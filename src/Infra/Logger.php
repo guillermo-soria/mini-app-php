@@ -24,7 +24,10 @@ class Logger
     {
         $date = date('Y-m-d H:i:s');
         $entry = "[$date][$level] $message\n";
-        file_put_contents($this->logFile, $entry, FILE_APPEND);
+        $result = file_put_contents($this->logFile, $entry, FILE_APPEND);
+        if ($result === false) {
+            throw new \RuntimeException("Failed to write to log file: {$this->logFile}");
+        }
     }
 }
 
