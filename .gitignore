@@ -1,5 +1,3 @@
-/data/
- /logs/
-*.log
-.DS_Store
-/vendor/
+# JetBrains IDE config directory
+.idea/
+
