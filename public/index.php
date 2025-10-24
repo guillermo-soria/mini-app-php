@@ -17,6 +17,7 @@ $logPath = __DIR__ . '/../logs/app.log';
 
 // Setup
 $pdo = new PDO('sqlite:' . $dbPath);
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $logger = new Logger($logPath);
 $xkcdService = new XkcdApiClient($logger);
 $controller = new ComicController($xkcdService);
