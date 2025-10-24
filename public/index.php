@@ -157,7 +157,7 @@ if (!empty($_SERVER['HTTP_HX_REQUEST'])) {
                 <a href="?id=<?= $prev ?>" hx-get="?id=<?= $prev ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Previous</a>
                 <a href="?id=<?= $next ?>" hx-get="?id=<?= $next ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Next</a>
                 <a href="?id=<?= $random ?>" hx-get="?id=<?= $random ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Random</a>
-                <a href="/" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Latest</a>
+                <a href="/" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Latest </a>
             </div>
 
             <form method="get" action="/" class="mb-4 flex items-center gap-2">
