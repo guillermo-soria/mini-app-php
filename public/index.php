@@ -117,23 +117,90 @@ function esc($str) {
     return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
 }
 
-?><!DOCTYPE html>
+// If this is an HTMX request, return only the main fragment (so htmx can swap it)
+if (!empty($_SERVER['HTTP_HX_REQUEST'])) {
+    // Render main fragment
+    // Note: keep output consistent with the main <main id="main"> ... </main> content below
+    if ($error) {
+        echo '<div class="mb-4 p-4 bg-red-100 text-red-800 rounded">';
+        if (strpos($error, 'Network error') !== false || strpos($error, 'Could not fetch XKCD comic') !== false) {
+            echo 'Network error: Unable to fetch comic. Please check your connection and try again.';
+        } elseif (strpos($error, 'Invalid response') !== false || strpos($error, 'comic') !== false) {
+            echo 'Comic not found. Please try a different comic number.';
+        } else {
+            echo 'An unexpected error occurred.';
+        }
+        echo '</div>';
+        echo '<div class="mb-6"><a href="/" class="text-blue-600 hover:underline">Back to Home</a></div>';
+    } elseif ($addedFavorite) {
+        echo '<div class="mb-4 p-4 bg-green-100 text-green-800 rounded">Comic added to favorites!</div>';
+        echo '<div class="mb-6"><a href="/" class="text-blue-600 hover:underline">Back to Home</a></div>';
+    } elseif ($comic) {
+        ob_start();
+        ?>
+        <section id="comic" class="bg-white shadow rounded p-6">
+            <h2 class="text-xl font-medium mb-2"><?= esc($comic['title']) ?> <span class="text-sm text-gray-500">#<?= esc($comic['num']) ?></span></h2>
+            <div class="mb-4">
+                <img class="w-full h-auto rounded" src="<?= esc($comic['img']) ?>" alt="<?= esc($comic['alt']) ?>">
+            </div>
+            <div class="mb-4 text-gray-700"><em><?= esc($comic['alt']) ?></em></div>
+            <div class="mb-4 text-sm text-gray-500">Date: <?= esc($comic['year']) ?>-<?= esc($comic['month']) ?>-<?= esc($comic['day']) ?></div>
+
+            <div class="flex items-center gap-3 mb-4">
+                <?php
+                $maxNum = $latestComic['num'] ?? ($comic['num'] ?? 1);
+                $currNum = $comic['num'] ?? 1;
+                $prev = max(1, $currNum - 1);
+                $next = min($maxNum, $currNum + 1);
+                $random = random_int(1, $maxNum);
+                ?>
+                <a href="?id=<?= $prev ?>" hx-get="?id=<?= $prev ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Previous</a>
+                <a href="?id=<?= $next ?>" hx-get="?id=<?= $next ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Next</a>
+                <a href="?id=<?= $random ?>" hx-get="?id=<?= $random ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Random</a>
+                <a href="/" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Latest</a>
+            </div>
+
+            <form method="get" action="/" class="mb-4 flex items-center gap-2">
+                <label for="id" class="text-sm">Go to comic #:</label>
+                <input type="number" name="id" id="id" min="1" max="<?= esc($maxNum) ?>" value="<?= esc($currNum) ?>" class="border rounded px-2 py-1 w-28">
+                <button type="submit" class="px-3 py-1 bg-indigo-600 text-white rounded">Go</button>
+            </form>
+
+            <form method="post" action="?id=<?= esc($currNum) ?>" class="inline">
+                <button type="submit" name="favorite" value="1" class="px-3 py-1 bg-yellow-400 rounded">Add to Favorites</button>
+            </form>
+        </section>
+        <?php
+        $fragment = ob_get_clean();
+        echo $fragment;
+    } else {
+        echo '<div class="text-gray-600">No comic to display.</div>';
+    }
+    exit;
+}
+
+?>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>XKCD Mini App</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 2em; }
-        .comic-img { max-width: 100%; height: auto; }
-        .nav-btns { margin: 1em 0; }
-        .error { color: red; }
-        .success { color: green; }
-    </style>
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <!-- Alpine.js -->
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
-<body>
-    <h1>XKCD Mini App</h1>
+<body class="bg-gray-50 text-gray-900">
+<div class="max-w-3xl mx-auto p-6" id="app" x-data>
+    <header class="mb-6">
+        <h1 class="text-3xl font-semibold">XKCD Mini App</h1>
+    </header>
+
+    <main id="main">
     <?php if ($error): ?>
-        <div class="error">
+        <div class="mb-4 p-4 bg-red-100 text-red-800 rounded">
             <?php
             if (strpos($error, 'Network error') !== false || strpos($error, 'Could not fetch XKCD comic') !== false) {
                 echo 'Network error: Unable to fetch comic. Please check your connection and try again.';
@@ -144,40 +211,51 @@ function esc($str) {
             }
             ?>
         </div>
-        <div><a href="/" class="back-home-btn">Back to Home</a></div>
+        <div class="mb-6"><a href="/" class="text-blue-600 hover:underline">Back to Home</a></div>
     <?php elseif ($addedFavorite): ?>
-        <div class="success">Comic added to favorites!</div>
-        <div><a href="/">Back to Home</a></div>
+        <div class="mb-4 p-4 bg-green-100 text-green-800 rounded">Comic added to favorites!</div>
+        <div class="mb-6"><a href="/" class="text-blue-600 hover:underline">Back to Home</a></div>
     <?php elseif ($comic): ?>
-        <h2><?= esc($comic['title']) ?> (#<?= esc($comic['num']) ?>)</h2>
-        <div><img class="comic-img" src="<?= esc($comic['img']) ?>" alt="<?= esc($comic['alt']) ?>"></div>
-        <div><em><?= esc($comic['alt']) ?></em></div>
-        <div>Date: <?= esc($comic['year']) ?>-<?= esc($comic['month']) ?>-<?= esc($comic['day']) ?></div>
-        <div class="nav-btns">
-            <?php
-            $maxNum = $latestComic['num'] ?? ($comic['num'] ?? 1);
-            $currNum = $comic['num'] ?? 1;
-            $prev = max(1, $currNum - 1);
-            $next = min($maxNum, $currNum + 1);
-            $random = random_int(1, $maxNum);
-            ?>
-            <a href="?id=<?= $prev ?>">Previous</a>
-            <a href="?id=<?= $next ?>">Next</a>
-            <a href="?id=<?= $random ?>">Random</a>
-            <a href="/">Latest</a>
-        </div>
-        <form method="get" action="/">
-            <label for="id">Go to comic #:</label>
-            <input type="number" name="id" id="id" min="1" max="<?= esc($maxNum) ?>" value="<?= esc($currNum) ?>">
-            <button type="submit">Go</button>
-        </form>
-        <form method="post" action="?id=<?= esc($currNum) ?>">
-            <button type="submit" name="favorite" value="1">Add to Favorites</button>
-        </form>
+        <section id="comic" class="bg-white shadow rounded p-6">
+            <h2 class="text-xl font-medium mb-2"><?= esc($comic['title']) ?> <span class="text-sm text-gray-500">#<?= esc($comic['num']) ?></span></h2>
+            <div class="mb-4">
+                <img class="w-full h-auto rounded" src="<?= esc($comic['img']) ?>" alt="<?= esc($comic['alt']) ?>">
+            </div>
+            <div class="mb-4 text-gray-700"><em><?= esc($comic['alt']) ?></em></div>
+            <div class="mb-4 text-sm text-gray-500">Date: <?= esc($comic['year']) ?>-<?= esc($comic['month']) ?>-<?= esc($comic['day']) ?></div>
+
+            <div class="flex items-center gap-3 mb-4">
+                <?php
+                $maxNum = $latestComic['num'] ?? ($comic['num'] ?? 1);
+                $currNum = $comic['num'] ?? 1;
+                $prev = max(1, $currNum - 1);
+                $next = min($maxNum, $currNum + 1);
+                $random = random_int(1, $maxNum);
+                ?>
+                <a href="?id=<?= $prev ?>" hx-get="?id=<?= $prev ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Previous</a>
+                <a href="?id=<?= $next ?>" hx-get="?id=<?= $next ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Next</a>
+                <a href="?id=<?= $random ?>" hx-get="?id=<?= $random ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Random</a>
+                <a href="/" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Latest</a>
+            </div>
+
+            <form method="get" action="/" class="mb-4 flex items-center gap-2">
+                <label for="id" class="text-sm">Go to comic #:</label>
+                <input type="number" name="id" id="id" min="1" max="<?= esc($maxNum) ?>" value="<?= esc($currNum) ?>" class="border rounded px-2 py-1 w-28">
+                <button type="submit" class="px-3 py-1 bg-indigo-600 text-white rounded">Go</button>
+            </form>
+
+            <form method="post" action="?id=<?= esc($currNum) ?>" class="inline">
+                <button type="submit" name="favorite" value="1" class="px-3 py-1 bg-yellow-400 rounded">Add to Favorites</button>
+            </form>
+        </section>
     <?php else: ?>
-        <div>No comic to display.</div>
+        <div class="text-gray-600">No comic to display.</div>
     <?php endif; ?>
-    <hr>
-    <a href="/api/favorites" target="_blank">View Favorites (JSON)</a>
+    </main>
+
+    <footer class="mt-6 text-sm text-gray-500">
+        <a href="/api/favorites" class="text-blue-600 hover:underline" target="_blank">View Favorites (JSON)</a>
+    </footer>
+</div>
 </body>
 </html>
