@@ -3,7 +3,7 @@ FROM php:8.1-apache
 
 # Install PDO and SQLite support
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libzip-dev zip unzip \
+    && apt-get install -y --no-install-recommends libzip-dev zip unzip libsqlite3-dev pkg-config \
     && docker-php-ext-install pdo pdo_sqlite \
     && rm -rf /var/lib/apt/lists/*
 
@@ -11,8 +11,12 @@ RUN apt-get update \
 COPY . /var/www/html/
 WORKDIR /var/www/html
 
+# Set Apache DocumentRoot to public/ and adjust Apache config
+RUN sed -ri 's#DocumentRoot /var/www/html#DocumentRoot /var/www/html/public#' /etc/apache2/sites-available/*.conf \
+ && sed -ri "s#<Directory /var/www/html>#<Directory /var/www/html/public>#" /etc/apache2/apache2.conf /etc/apache2/sites-available/*.conf || true
+
 # Ensure data directory exists and is writable by www-data
-RUN mkdir -p /data && chown -R www-data:www-data /data
+RUN mkdir -p /data /var/www/html/public && chown -R www-data:www-data /var/www/html /data && chmod -R 755 /var/www/html/public
 
 # Environment variable for DB path (can be overridden on Fly)
 ENV FAVORITES_DB=/data/favorites.sqlite
@@ -22,4 +26,3 @@ EXPOSE 80
 
 # Start Apache
 CMD ["apache2-foreground"]
-
