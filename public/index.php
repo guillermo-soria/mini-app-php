@@ -1,147 +1,157 @@
 <?php
 declare(strict_types=1);
 
-$xkcdBase = 'https://xkcd.com';
-$timeout  = 6;
+use App\Presentation\ComicController;
+use App\Infra\XkcdApiClient;
+use App\Infra\FavoritesRepository;
+use App\Infra\Logger;
 
-/**
- * Llama al endpoint de XKCD. Si $num es null → cómic actual.
- * Devuelve array con datos o null si hay error.
- */
-function fetchXkcd(?int $num, string $base, int $timeout): ?array {
-    $url = $num ? "{$base}/{$num}/info.0.json" : "{$base}/info.0.json";
+require_once __DIR__ . '/../src/Presentation/ComicController.php';
+require_once __DIR__ . '/../src/Infra/XkcdApiClient.php';
+require_once __DIR__ . '/../src/Infra/FavoritesRepository.php';
+require_once __DIR__ . '/../src/Infra/Logger.php';
 
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => $timeout,
-            CURLOPT_TIMEOUT        => $timeout,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_USERAGENT      => 'xkcd-miniapp/step2',
-    ]);
-    $res = curl_exec($ch);
+// Config
+$dbPath = __DIR__ . '/../data/favorites.sqlite';
+$logPath = __DIR__ . '/../logs/app.log';
 
-    if ($res === false) {
-        curl_close($ch);
-        return null; // error de red
+// Setup
+$pdo = new PDO('sqlite:' . $dbPath);
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$logger = new Logger($logPath);
+$xkcdService = new XkcdApiClient($logger);
+$controller = new ComicController($xkcdService);
+$favModel = new FavoritesRepository($pdo);
+
+// Routing
+$uri = strtok($_SERVER['REQUEST_URI'], '?');
+
+if ($uri === '/api/favorites') {
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $favorites = $favModel->getFavorites();
+        http_response_code(200);
+        echo json_encode($favorites);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to fetch favorites']);
+        $logger->error('Favorites endpoint error: ' . $e->getMessage());
     }
-
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($status !== 200) {
-        return null; // p.ej. 404 si el número no existe
-    }
-
-    $data = json_decode($res, true);
-    return is_array($data) ? $data : null;
-}
-
-function htmlError(string $msg): void {
-    $safe = htmlspecialchars($msg, ENT_QUOTES, 'UTF-8');
-    http_response_code(502);
-    echo <<<HTML
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Error – XKCD</title>
-<style>body{font-family:system-ui;margin:24px;color:#b00020}a{color:#0b5}</style>
-</head><body>
-<h1>Something went wrong</h1>
-<p>{$safe}</p>
-<p><a href="/">Go home</a></p>
-</body></html>
-HTML;
     exit;
 }
 
-/** 1) Traer el “latest” para saber el límite superior */
-$latest = fetchXkcd(null, $xkcdBase, $timeout);
-if (!$latest) {
-    htmlError('Network/API error reaching XKCD for the latest comic.');
+$num = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$error = null;
+if ($num === false && isset($_GET['id'])) {
+    $error = 'Invalid comic number. Please enter a valid number.';
+    $num = null;
 }
-$latestNum = (int)($latest['num'] ?? 1);
+$comic = null;
+$latestComic = null;
 
-/** 2) Leer ?id y acotarlo a [1, $latestNum] */
-$requested = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-if ($requested !== null && $requested !== false) {
-    $requested = max(1, min($latestNum, $requested));
-} else {
-    $requested = null; // null → actual
-}
-
-/** 3) Traer el cómic solicitado (o actual si null) */
-$comic = fetchXkcd($requested, $xkcdBase, $timeout);
-if (!$comic) {
-    htmlError('Comic not found or network/API error.');
+try {
+    $latestComic = $controller->show();
+    if (!$error) {
+        $comic = $controller->show($num);
+    }
+} catch (Exception $e) {
+    $logger->error($e->getMessage());
+    $error = $e->getMessage();
 }
 
-/** 4) Datos y fecha robusta */
-$num   = (int)($comic['num'] ?? 0);
-$title = htmlspecialchars($comic['title'] ?? 'Unknown', ENT_QUOTES, 'UTF-8');
-$img   = htmlspecialchars($comic['img'] ?? '', ENT_QUOTES, 'UTF-8');
-$alt   = htmlspecialchars($comic['alt'] ?? '', ENT_QUOTES, 'UTF-8');
-
-$y = (int)($comic['year'] ?? 0);
-$m = (int)($comic['month'] ?? 0);
-$d = (int)($comic['day'] ?? 0);
-
-if ($y >= 1 && checkdate($m ?: 1, $d ?: 1, $y)) {
-    $dt = DateTimeImmutable::createFromFormat('!Y-n-j', "{$y}-{$m}-{$d}");
-    $date = $dt ? $dt->format('Y-m-d') : sprintf('%04d-%02d-%02d', $y, max(1,$m), max(1,$d));
-} else {
-    $date = '0000-01-01';
+if ($error) {
+    http_response_code(500);
 }
 
-/** 5) Navegación (prev/next/random) con límites */
-$prev   = max(1, $num - 1);
-$next   = min($latestNum, $num + 1);
-$rand   = random_int(1, $latestNum);
-$disPrev = $num <= 1 ? 'disabled' : '';
-$disNext = $num >= $latestNum ? 'disabled' : '';
+$addedFavorite = false;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['favorite']) && $comic) {
+    // Validate year, month, and day
+    $year = isset($comic['year']) ? filter_var($comic['year'], FILTER_VALIDATE_INT) : false;
+    $month = isset($comic['month']) ? filter_var($comic['month'], FILTER_VALIDATE_INT) : false;
+    $day = isset($comic['day']) ? filter_var($comic['day'], FILTER_VALIDATE_INT) : false;
+    if ($year !== false && $month !== false && $day !== false &&
+        $year > 0 && $month >= 1 && $month <= 12 && $day >= 1 && $day <= 31) {
+        $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
+        $favData = [
+            'num' => $comic['num'],
+            'title' => $comic['title'],
+            'img' => $comic['img'],
+            'alt' => $comic['alt'],
+            'date' => $date
+        ];
+        if ($favModel->addFavorite($favData)) {
+            $addedFavorite = true;
+        }
+    } else {
+        $logger->error('Invalid date fields for favorite: ' . json_encode([$comic['year'], $comic['month'], $comic['day']]));
+    }
+}
 
-?>
-<!doctype html>
+function esc($str) {
+    return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
+}
+
+?><!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title><?= $title ?> – XKCD</title>
+    <meta charset="UTF-8">
+    <title>XKCD Mini App</title>
     <style>
-        body{font-family:system-ui, -apple-system, Segoe UI, Roboto; margin:24px}
-        .wrap{max-width:920px;margin:auto}
-        figure{margin:16px 0}
-        img{max-width:100%;height:auto}
-        nav a button{margin-right:8px;padding:8px 12px}
-        .meta{color:#555}
-        .badge{display:inline-block;background:#eee;border-radius:6px;padding:2px 8px;margin-left:8px}
-        form.inline{display:inline}
-        input[type=number]{width:110px}
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .comic-img { max-width: 100%; height: auto; }
+        .nav-btns { margin: 1em 0; }
+        .error { color: red; }
+        .success { color: green; }
     </style>
 </head>
 <body>
-<div class="wrap">
-    <h1><?= $title ?> <span class="badge">#<?= $num ?></span></h1>
-    <p class="meta">Date: <?= htmlspecialchars($date, ENT_QUOTES, 'UTF-8') ?> · Latest: <?= $latestNum ?></p>
-
-    <figure>
-        <img src="<?= $img ?>" alt="<?= $alt ?>" title="<?= $alt ?>">
-        <figcaption><?= $alt ?></figcaption>
-    </figure>
-
-    <nav>
-        <a href="/?id=<?= $prev ?>"><button <?= $disPrev ?>>Previous</button></a>
-        <a href="/?id=<?= $next ?>"><button <?= $disNext ?>>Next</button></a>
-        <a href="/?id=<?= $rand ?>"><button>Random</button></a>
-
-        <form class="inline" method="get" action="/">
-            <label>
-                <input type="number" name="id" min="1" max="<?= $latestNum ?>" placeholder="Go to #" >
-            </label>
+    <h1>XKCD Mini App</h1>
+    <?php if ($error): ?>
+        <div class="error">
+            <?php
+            if (strpos($error, 'Network error') !== false || strpos($error, 'Could not fetch XKCD comic') !== false) {
+                echo 'Network error: Unable to fetch comic. Please check your connection and try again.';
+            } elseif (strpos($error, 'Invalid response') !== false || strpos($error, 'comic') !== false) {
+                echo 'Comic not found. Please try a different comic number.';
+            } else {
+                echo 'An unexpected error occurred.';
+            }
+            ?>
+        </div>
+        <div><a href="/" class="back-home-btn">Back to Home</a></div>
+    <?php elseif ($addedFavorite): ?>
+        <div class="success">Comic added to favorites!</div>
+        <div><a href="/">Back to Home</a></div>
+    <?php elseif ($comic): ?>
+        <h2><?= esc($comic['title']) ?> (#<?= esc($comic['num']) ?>)</h2>
+        <div><img class="comic-img" src="<?= esc($comic['img']) ?>" alt="<?= esc($comic['alt']) ?>"></div>
+        <div><em><?= esc($comic['alt']) ?></em></div>
+        <div>Date: <?= esc($comic['year']) ?>-<?= esc($comic['month']) ?>-<?= esc($comic['day']) ?></div>
+        <div class="nav-btns">
+            <?php
+            $maxNum = $latestComic['num'] ?? $comic['num'];
+            $currNum = $comic['num'];
+            $prev = max(1, $currNum - 1);
+            $next = min($maxNum, $currNum + 1);
+            $random = random_int(1, $maxNum);
+            ?>
+            <a href="?id=<?= $prev ?>">Previous</a>
+            <a href="?id=<?= $next ?>">Next</a>
+            <a href="?id=<?= $random ?>">Random</a>
+            <a href="/">Latest</a>
+        </div>
+        <form method="get" action="/">
+            <label for="id">Go to comic #:</label>
+            <input type="number" name="id" id="id" min="1" max="<?= esc($maxNum) ?>" value="<?= esc($currNum) ?>">
             <button type="submit">Go</button>
         </form>
-
-        <a href="/"><button>Today</button></a>
-    </nav>
-</div>
+        <form method="post" action="?id=<?= esc($currNum) ?>">
+            <button type="submit" name="favorite" value="1">Add to Favorites</button>
+        </form>
+    <?php else: ?>
+        <div>No comic to display.</div>
+    <?php endif; ?>
+    <hr>
+    <a href="/api/favorites" target="_blank">View Favorites (JSON)</a>
 </body>
 </html>

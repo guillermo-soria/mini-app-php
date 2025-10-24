@@ -1,3 +1,6 @@
 # JetBrains IDE config directory
 .idea/
-
+# Ignore log files
+logs/*.log
+# Ignore SQLite database
+data/*.sqlite
