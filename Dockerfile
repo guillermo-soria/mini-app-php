@@ -15,6 +15,10 @@ WORKDIR /var/www/html
 RUN sed -ri 's#DocumentRoot /var/www/html#DocumentRoot /var/www/html/public#' /etc/apache2/sites-available/*.conf \
  && sed -ri "s#<Directory /var/www/html>#<Directory /var/www/html/public>#" /etc/apache2/apache2.conf /etc/apache2/sites-available/*.conf || true
 
+# Ensure AllowOverride All so .htaccess works and enable rewrite module
+RUN sed -ri "s/AllowOverride None/AllowOverride All/g" /etc/apache2/apache2.conf /etc/apache2/sites-available/*.conf || true \
+ && a2enmod rewrite headers || true
+
 # Ensure data directory exists and is writable by www-data
 RUN mkdir -p /data /var/www/html/public && chown -R www-data:www-data /var/www/html /data && chmod -R 755 /var/www/html/public
 
