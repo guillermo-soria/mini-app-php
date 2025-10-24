@@ -131,10 +131,10 @@ if (!empty($_SERVER['HTTP_HX_REQUEST'])) {
             echo 'An unexpected error occurred.';
         }
         echo '</div>';
-        echo '<div class="mb-6"><a href="/" class="text-blue-600 hover:underline">Back to Home</a></div>';
+        echo '<div class="mb-6"><button type="button" hx-get="/" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Back to Home</button></div>';
     } elseif ($addedFavorite) {
         echo '<div class="mb-4 p-4 bg-green-100 text-green-800 rounded">Comic added to favorites!</div>';
-        echo '<div class="mb-6"><a href="/" class="text-blue-600 hover:underline">Back to Home</a></div>';
+        echo '<div class="mb-6"><button type="button" hx-get="/" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Back to Home</button></div>';
     } elseif ($comic) {
         ob_start();
         ?>
@@ -154,10 +154,10 @@ if (!empty($_SERVER['HTTP_HX_REQUEST'])) {
                 $next = min($maxNum, $currNum + 1);
                 $random = random_int(1, $maxNum);
                 ?>
-                <a href="?id=<?= $prev ?>" hx-get="?id=<?= $prev ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Previous</a>
-                <a href="?id=<?= $next ?>" hx-get="?id=<?= $next ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Next</a>
-                <a href="?id=<?= $random ?>" hx-get="?id=<?= $random ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Random</a>
-                <a href="/" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Latest </a>
+                <button type="button" hx-get="?id=<?= $prev ?>" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Previous</button>
+                <button type="button" hx-get="?id=<?= $next ?>" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Next</button>
+                <button type="button" hx-get="?id=<?= $random ?>" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Random</button>
+                <button type="button" hx-get="/" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Latest</button>
             </div>
 
             <form method="get" action="/" class="mb-4 flex items-center gap-2">
@@ -211,10 +211,11 @@ if (!empty($_SERVER['HTTP_HX_REQUEST'])) {
             }
             ?>
         </div>
-        <div class="mb-6"><a href="/" class="text-blue-600 hover:underline">Back to Home</a></div>
+        <div class="mb-6"><button type="button" hx-get="/" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Back to Home</button>
+        </div>
     <?php elseif ($addedFavorite): ?>
         <div class="mb-4 p-4 bg-green-100 text-green-800 rounded">Comic added to favorites!</div>
-        <div class="mb-6"><a href="/" class="text-blue-600 hover:underline">Back to Home</a></div>
+        <div class="mb-6"><button type="button" hx-get="/" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Back to Home</button></div>
     <?php elseif ($comic): ?>
         <section id="comic" class="bg-white shadow rounded p-6">
             <h2 class="text-xl font-medium mb-2"><?= esc($comic['title']) ?> <span class="text-sm text-gray-500">#<?= esc($comic['num']) ?></span></h2>
@@ -232,10 +233,10 @@ if (!empty($_SERVER['HTTP_HX_REQUEST'])) {
                 $next = min($maxNum, $currNum + 1);
                 $random = random_int(1, $maxNum);
                 ?>
-                <a href="?id=<?= $prev ?>" hx-get="?id=<?= $prev ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Previous</a>
-                <a href="?id=<?= $next ?>" hx-get="?id=<?= $next ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Next</a>
-                <a href="?id=<?= $random ?>" hx-get="?id=<?= $random ?>" hx-target="#main" hx-swap="innerHTML" role="button" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Random</a>
-                <a href="/" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Latest</a>
+                <button type="button" hx-get="?id=<?= $prev ?>" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Previous</button>
+                <button type="button" hx-get="?id=<?= $next ?>" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Next</button>
+                <button type="button" hx-get="?id=<?= $random ?>" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">Random</button>
+                <button type="button" hx-get="/" hx-target="#main" hx-swap="innerHTML" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Latest</button>
             </div>
 
             <form method="get" action="/" class="mb-4 flex items-center gap-2">
@@ -254,8 +255,90 @@ if (!empty($_SERVER['HTTP_HX_REQUEST'])) {
     </main>
 
     <footer class="mt-6 text-sm text-gray-500">
-        <a href="/api/favorites" class="text-blue-600 hover:underline" target="_blank">View Favorites (JSON)</a>
+        <button type="button" onclick="window.open('/api/favorites', '_blank')" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer">View Favorites (JSON)</button>
     </footer>
 </div>
+<script>
+(function(){
+    function isNavAnchor(a){
+        if (!a || a.tagName !== 'A') return false;
+        var href = a.getAttribute('href') || '';
+        // Convert anchors used by HTMX or internal navigation
+        if (a.hasAttribute('hx-get')) return true;
+        if (href === '/' || href === '' ) return true;
+        if (href.startsWith('?') || href.startsWith('/?')) return true;
+        if (href === '/api/favorites') return true; // keep favorites as a button that opens new tab
+        return false;
+    }
+
+    function convertAnchor(a){
+        if (!isNavAnchor(a)) return;
+        if (a.dataset.converted === '1') return;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+
+        // Copy attributes: hx-*, class, role, aria-*, data-*; handle href specially
+        Array.from(a.attributes).forEach(function(attr){
+            var name = attr.name, value = attr.value;
+            if (name === 'href') {
+                // If it's an API/favorites link or target _blank, open in new tab
+                if (value === '/api/favorites' || a.target === '_blank') {
+                    btn.addEventListener('click', function(ev){
+                        ev.preventDefault();
+                        window.open(value, a.target || '_blank');
+                    });
+                } else {
+                    // Treat href as hx-get so behavior matches anchors
+                    btn.setAttribute('hx-get', value);
+                }
+            } else if (name.startsWith('hx-') || name === 'class' || name === 'role' || name.startsWith('aria-') || name.startsWith('data-')) {
+                btn.setAttribute(name, value);
+            }
+        });
+
+        // Copy inner HTML/text and preserve basic accessibility
+        btn.innerHTML = a.innerHTML;
+        if (a.hasAttribute('title')) btn.setAttribute('title', a.getAttribute('title'));
+        if (a.hasAttribute('tabindex')) btn.setAttribute('tabindex', a.getAttribute('tabindex'));
+
+        // Mark converted and replace in DOM
+        btn.dataset.converted = '1';
+        a.replaceWith(btn);
+    }
+
+    function convertAnchors(root){
+        root = root || document;
+        var anchors = root.querySelectorAll('a');
+        anchors.forEach(convertAnchor);
+    }
+
+    function observeAndConvert(){
+        // Initial pass
+        convertAnchors(document);
+        // Observe for dynamic additions
+        var mo = new MutationObserver(function(mutations){
+            mutations.forEach(function(m){
+                m.addedNodes && m.addedNodes.forEach(function(node){
+                    if (node.nodeType === 1) convertAnchors(node);
+                });
+            });
+        });
+        mo.observe(document.documentElement || document.body, { childList: true, subtree: true });
+
+        // Also run after HTMX swaps
+        document.body.addEventListener('htmx:afterSwap', function(evt){
+            // evt.target may be the swapped element
+            var tgt = evt && (evt.target || (evt.detail && evt.detail.target));
+            convertAnchors(tgt || document);
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', observeAndConvert);
+    } else {
+        observeAndConvert();
+    }
+})();
+</script>
 </body>
 </html>
