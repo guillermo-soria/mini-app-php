@@ -33,7 +33,7 @@ class XkcdApiClient
         $json = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         if (curl_errno($ch)) {
-            $errorMsg = "cURL error while fetching XKCD comic: " . ($num ?? 'latest') . " URL: $url. cURL error: " . curl_error($ch);
+            $errorMsg = "cURL error while fetching XKCD comic " . ($num ?? 'latest') . " from $url: " . curl_error($ch);
             $this->logger->error($errorMsg);
             curl_close($ch);
             throw new Exception($errorMsg);
